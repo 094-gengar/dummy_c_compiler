@@ -23,7 +23,7 @@ TokenStream* LexicalAnalysis(std::string input_filename) {
 		Token* next_token;
 		int index = 0;
 		int len = cur_line.length();
-		while (index< len) {
+		while (index < len) {
 			next_char = cur_line.at(index++);
 			// コメントアウト読み飛ばし
 			if (iscomment) {
@@ -82,7 +82,7 @@ TokenStream* LexicalAnalysis(std::string input_filename) {
 					continue;
 				} else { // div
 					index--;
-					next_token = new Token(token_str, TOK_SYNBOL, line_num);
+					next_token = new Token(token_str, TOK_SYMBOL, line_num);
 				}
 			} else { // それ以外
 				if (next_char == '*' or
@@ -96,7 +96,7 @@ TokenStream* LexicalAnalysis(std::string input_filename) {
 					next_char == '{' or
 					next_char == '}') {
 					token_str += next_char;
-					next_token = new Token(token_str, TOK_SYNBOL, line_num);
+					next_token = new Token(token_str, TOK_SYMBOL, line_num);
 				} else {
 					fprintf(stderr, "unclear token : %c", next_char);
 					SAFE_DELETE(tokens);
