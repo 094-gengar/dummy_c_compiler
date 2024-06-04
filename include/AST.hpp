@@ -85,7 +85,7 @@ public:
 		: Name(name), Params(params) {}
 	std::string getName() { return Name; }
 	std::string getParamName(int i) { if (i < Params.size()) { return Params.at(i); } else {return NULL; } }
-	int getParamNumb() { return Params.size(); }
+	int getParamNum() { return Params.size(); }
 };
 
 // 関数定義
