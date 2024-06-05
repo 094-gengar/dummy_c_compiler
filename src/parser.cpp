@@ -203,4 +203,172 @@ PrototypeAST* Parser::visitPrototype() {
 	}
 }
 
+/*
+ * FunctionStatement用構文解析メソッド
+ * @param 関数名、引数を格納したPrototypeクラスのインスタンス
+ * @return 解析成功：FunctionStmtAST、失敗：NULL
+ */
+FunctionStmtAST* Parser::visitFunctionStatement(PrototypeAST* proto) {
+	const int tmp = Tokens->getCurIndex();
+	// {
+	if (Tokens->getCurString() == "{") {
+		Tokens->getNextToken();
+	} else {
+		return NULL;
+	}
+
+	// create FunctionStatement
+	FunctionStmtAST* func_stmt = new FunctionStmtAST();
+
+	// add parameter to FunctionStatement
+	for (int i = 0; i < proto->getParamNum(); i++) {
+		VariableDeclAST* vdecl = new VariableDeclAST(proto->getParamName(i));
+		vdecl->setDeclType(VariableDeclAST::param);
+		func_stmt->addVariableDeclaration(vdecl);
+		VariableTable.push_back(vdecl->getName());
+	}
+
+	VariableDeclAST* var_decl;
+	BaseAST* stmt, * last_stmt;
+
+	// {statement_list}
+	if (stmt = visitStatement()) {
+		while (stmt) {
+			last_stmt = stmt;
+			func_stmt->addStatement(stmt);
+			stmt = visitStatement();
+		}
+	} else if (var_decl = visitVariableDeclaration()) { // variable_declaration list
+		while (var_decl) {
+			var_decl->setDeclType(VariableDeclAST::local);
+			if (std::find(begin(VariableTable), end(VariableTable), var_decl->getName()) != end(VariableTable)) {
+				SAFE_DELETE(var_decl);
+				SAFE_DELETE(func_stmt);
+				return NULL;
+			}
+			func_stmt->addVariableDeclaration(var_decl);
+			VariableTable.push_back(var_decl->getName());
+			// parse Variable Declaration
+			var_decl = visitVariableDeclaration();
+		}
+		if (stmt = visitStatement()) {
+			while (stmt) {
+				last_stmt = stmt;
+				func_stmt->addStatement(stmt);
+				stmt = visitStatement();
+			}
+		}
+	} else { // other
+		SAFE_DELETE(func_stmt);
+		Tokens->applyTokenIndex(tmp);
+		return NULL;
+	}
+
+	// check if last statement is jump_statement
+	if (not last_stmt or not llvm::isa<JumpStmtAST>(last_stmt)) {
+		SAFE_DELETE(func_stmt);
+		Tokens->applyTokenIndex(tmp);
+		return NULL;
+	}
+
+	// }
+	if (Tokens->getCurString() == "}") {
+		Tokens->getNextToken();
+		return func_stmt;
+	} else {
+		SAFE_DELETE(func_stmt);
+		Tokens->applyTokenIndex(tmp);
+		return NULL;
+	}
+}
+
+/*
+ * VariableDeclaration用構文解析メソッド
+ * @return 解析成功：VariableDeclAST、失敗：NULL
+ */
+VariableDeclAST* Parser::visitVariableDeclaration() {
+	std::string name;
+	// INT
+	if (Tokens->getCurType() == TOK_INT) {
+		Tokens->getNextToken();
+	} else {
+		return NULL;
+	}
+	// IDENTIFIER
+	if (Tokens->getCurType() == TOK_IDENTIFIER) {
+		name = Tokens->getCurString();
+		Tokens->getNextToken();
+	} else {
+		Tokens->ungetToken(1);
+		return NULL;
+	}
+	// ';'
+	if (Tokens->getCurString() == ";") {
+		Tokens->getNextToken();
+		return new VariableDeclAST(name);
+	} else {
+		Tokens->ungetToken(2);
+		return NULL;
+	}
+}
+
+/*
+ * Statement用構文解析メソッド
+ * @return 解析成功：AST、失敗：NULL
+ */
+BaseAST* Parser::visitStatement() {
+	BaseAST* stmt = NULL;
+	if (stmt = visitExpressionStatement()) {
+		return stmt;
+	} else if (stmt = visitJumpStatement()) {
+		return stmt;
+	} else {
+		return NULL;
+	}
+}
+
+/*
+ * ExpressionStatement用構文解析メソッド
+ * @return 解析成功：AST、失敗：NULL
+ */
+BaseAST* Parser::visitExpressionStatement() {
+	BaseAST* assign_expr;
+	// NULL Expression
+	if (Tokens->getCurString() == ";") {
+		Tokens->getNextToken();
+		return new NullExprAST();
+	} else if (assign_expr = visitAssignmentExpression()) {
+		if (Tokens->getCurString() == ";") {
+			Tokens->getNextToken();
+			return assign_expr;
+		}
+	}
+	return NULL;
+}
+
+/*
+ * JumpStatement用構文解析メソッド
+ * @return 解析成功：AST、失敗：NULL
+ */
+BaseAST* Parser::visitJumpStatement() {
+	const int tmp = Tokens->getCurIndex();
+	BaseAST* expr;
+	if (Tokens->getCurType() == TOK_RETURN) {
+		Tokens->getNextToken();
+		if (not (expr = visitAssignmentExpression())) {
+			Tokens->applyTokenIndex(tmp);
+			return NULL;
+		}
+		if (Tokens->getCurString() == ";") {
+			Tokens->getNextToken();
+			return new JumpStmtAST(expr);
+		} else {
+			Tokens->applyTokenIndex(tmp);
+			return NULL;
+		}
+	} else {
+		return NULL;
+	}
+}
+
 // TODO
