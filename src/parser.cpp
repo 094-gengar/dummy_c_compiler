@@ -371,4 +371,88 @@ BaseAST* Parser::visitJumpStatement() {
 	}
 }
 
+/*
+ * AssignmentExpression用構文解析メソッド
+ * @return 解析成功：AST、解析失敗：NULL
+ */
+BaseAST* Parser::visitAssignmentExpression() {
+	const int tmp = Tokens->getCurIndex();
+	// | IDENTIFIER '=' additive_expression
+	BaseAST* lhs;
+	if (Tokens->getCurType() == TOK_IDENTIFIER) {
+		// 変数が宣言されているか確認
+		if (std::find(begin(VariableTable), end(VariableTable), Tokens->getCurString()) != end(VariableTable)) {
+			lhs = new VariableAST(Tokens->getCurString());
+			Tokens->getNextToken();
+			BaseAST* rhs;
+			if (Tokens->getCurType() == TOK_SYMBOL and 
+				Tokens->getCurString() == "=") {
+				Tokens->getNextToken();
+				if (rhs = visitAdditiveExpression(NULL)) {
+					return new BinaryExprAST("=", lhs, rhs);
+				} else {
+					SAFE_DELETE(lhs);
+					Tokens->applyTokenIndex(tmp);
+				}
+			} else {
+				SAFE_DELETE(lhs);
+				Tokens->applyTokenIndex(tmp);
+			}
+		} else {
+			Tokens->applyTokenIndex(tmp);
+		}
+	}
+	// additive_expression
+	BaseAST* add_expr = visitAdditiveExpression(NULL);
+	if (add_expr) {
+		return add_expr;
+	}
+	return NULL;
+}
+
+/*
+ * AdditiveExpression用構文解析メソッド
+ * @param lhs(左辺)、初回呼び出し時はNULL
+ * @return 解析成功：AST、失敗：NULL
+ */
+BaseAST* Parser::visitAdditiveExpression(BaseAST* lhs) {
+	const int tmp = Tokens->getCurIndex();
+	if (not lhs) {
+		lhs = visitMultiplicativeExpression(NULL);
+	}
+	if (not lhs) {
+		return NULL;
+	}
+	BaseAST* rhs;
+	// +
+	if (Tokens->getCurType() == TOK_SYMBOL and Tokens->getCurString() == "+") {
+		Tokens->getNextToken();
+		rhs = visitMultiplicativeExpression(NULL);
+		if (rhs) {
+			return visitAdditiveExpression(new BinaryExprAST("+", lhs, rhs));
+		} else {
+			SAFE_DELETE(lhs);
+			Tokens->applyTokenIndex(tmp);
+			return NULL;
+		}
+	} else if (Tokens->getCurType() == TOK_SYMBOL and Tokens->getCurString() == "-") {
+		Tokens->getNextToken();
+		rhs = visitMultiplicativeExpression(NULL);
+		if (rhs) {
+			return visitAdditiveExpression(new BinaryExprAST("-", lhs, rhs));
+		} else {
+			SAFE_DELETE(lhs);
+			Tokens->applyTokenIndex(tmp);
+			return NULL;
+		}
+	}
+	return lhs;
+}
+
+/*
+ * MultiplicativeExpression用解析メソッド
+ * @param lhs（左辺）、初回呼び出し時はNULL
+ * @return 解析成功：AST、失敗：NULL
+ */
+
 // TODO
