@@ -454,5 +454,159 @@ BaseAST* Parser::visitAdditiveExpression(BaseAST* lhs) {
  * @param lhs（左辺）、初回呼び出し時はNULL
  * @return 解析成功：AST、失敗：NULL
  */
+BaseAST* Parser::visitMultiplicativeExpression(BaseAST* lhs) {
+	const int tmp = Tokens->getCurIndex();
+	if (not lhs) {
+		lhs = visitPostfixExpression();
+	}
+	if (not lhs) {
+		return NULL;
+	}
+	BaseAST* rhs;
+	// *
+	if (Tokens->getCurType() == TOK_SYMBOL and Tokens->getCurString() == "*") {
+		Tokens->getNextToken();
+		rhs = visitPostfixExpression();
+		if (rhs) {
+			return visitAdditiveExpression(new BinaryExprAST("*", lhs, rhs));
+		} else {
+			SAFE_DELETE(lhs);
+			Tokens->applyTokenIndex(tmp);
+			return NULL;
+		}
+	} else if (Tokens->getCurType() == TOK_SYMBOL and Tokens->getCurString() == "/") {
+		Tokens->getNextToken();
+		rhs = visitPostfixExpression();
+		if (rhs) {
+			return visitAdditiveExpression(new BinaryExprAST("/", lhs, rhs));
+		} else {
+			SAFE_DELETE(lhs);
+			Tokens->applyTokenIndex(tmp);
+			return NULL;
+		}
+	}
+	return lhs;
+}
 
-// TODO
+/*
+ * PostfixExpression用構文解析メソッド
+ * @return 解析成功：AST、失敗：NULL
+ */
+BaseAST* Parser::visitPostfixExpression() {
+	const int tmp = Tokens->getCurIndex();
+	// primary_expression
+	BaseAST* prim_expr = visitPrimaryExpression();
+	if (prim_expr) {
+		return prim_expr;
+	}
+	// FUNCTION_IDENTIFIER
+	if (Tokens->getCurType() == TOK_IDENTIFIER) {
+		// is FUNCTION_IDENTIFIER
+		int param_num;
+		if (PrototypeTable.count(Tokens->getCurString())) {
+			param_num = PrototypeTable[Tokens->getCurString()];
+		} else if (FunctionTable.count(Tokens->getCurString())) {
+			param_num = FunctionTable[Tokens->getCurString()];
+		} else {
+			return NULL;
+		}
+
+		// 関数名取得
+		std::string Callee = Tokens->getCurString();
+		Tokens->getNextToken();
+
+		// LEFT PALEN
+		if (Tokens->getCurType() != TOK_SYMBOL or Tokens->getCurString() != "(") {
+			Tokens->applyTokenIndex(tmp);
+			return NULL;
+		}
+		Tokens->getNextToken();
+
+		// argument list
+		std::vector<BaseAST*> args;
+		BaseAST* assign_expr = visitAssignmentExpression();
+		if (assign_expr) {
+			args.push_back(assign_expr);
+			while (Tokens->getCurType() == TOK_SYMBOL and Tokens->getCurString() == ",") {
+				Tokens->getNextToken();
+				// IDENTIFIER
+				assign_expr = visitAssignmentExpression();
+				if (assign_expr) {
+					args.push_back(assign_expr);
+				} else {
+					break;
+				}
+			}
+		}
+
+		// 引数の数を確認
+		if (args.size() != param_num) {
+			for (int i = 0; i < args.size(); i++) {
+				SAFE_DELETE(args[i]);
+			}
+			Tokens->applyTokenIndex(tmp);
+			return NULL;
+		}
+
+		// RIGHT PALEN
+		if (Tokens->getCurType() == TOK_SYMBOL and Tokens->getCurString() == ")") {
+			Tokens->getNextToken();
+			return new CallExprAST(Callee, args);
+		} else {
+			for (int i = 0; i < args.size(); i++) {
+				SAFE_DELETE(args[i]);
+			}
+			Tokens->applyTokenIndex(tmp);
+			return NULL;
+		}
+	} else {
+		return NULL;
+	}
+}
+
+/*
+ * PrimaryExpression用構文解析メソッド
+ * @return 解析成功：AST、失敗：NULL
+ */
+BaseAST* Parser::visitPrimaryExpression() {
+	const int tmp = Tokens->getCurIndex();
+	// VARIABLE_IDENTIFIER
+	if (Tokens->getCurType() == TOK_IDENTIFIER and
+		std::find(begin(VariableTable), end(VariableTable), Tokens->getCurString()) != end(VariableTable)) {
+		std::string var_name = Tokens->getCurString();
+		Tokens->getNextToken();
+		return new VariableAST(var_name);
+	} else if (Tokens->getCurType() == TOK_DIGIT) { // integer
+		auto val = Tokens->getCurNumVal();
+		Tokens->getNextToken();
+		return new NumberAST(val);
+	} else if (Tokens->getCurType() == TOK_SYMBOL and Tokens->getCurString() == "-") { // negative integer
+		Tokens->getNextToken();
+		if (Tokens->getCurType() == TOK_DIGIT) {
+			auto val = Tokens->getCurNumVal();
+			Tokens->getNextToken();
+			return new NumberAST(-val);
+		} else {
+			Tokens->applyTokenIndex(tmp);
+			return NULL;
+		}
+	} else if (Tokens->getCurType() == TOK_SYMBOL and Tokens->getCurString() == "(") { // '(' expression ')'
+		Tokens->getNextToken();
+		// expression
+		BaseAST* assign_expr;
+		if (not (assign_expr = visitAssignmentExpression())) {
+			Tokens->applyTokenIndex(tmp);
+			return NULL;
+		}
+		// RIGHT PALEN
+		if (Tokens->getCurString() == ")") {
+			Tokens->getNextToken();
+			return assign_expr;
+		} else {
+			SAFE_DELETE(assign_expr);
+			Tokens->applyTokenIndex(tmp);
+			return NULL;
+		}
+	}
+	return NULL;
+}
