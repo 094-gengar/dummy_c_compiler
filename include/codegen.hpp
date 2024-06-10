@@ -30,6 +30,7 @@
  */
 class CodeGen {
 private:
+	llvm::LLVMContext TheContext;
 	llvm::Function* CurFunc; // 現在コード生成中のFunc
 	llvm::Module* Mod; // 生成したModuleを格納
 	llvm::IRBuilder<>* Builder; // LLVM-IRを生成するIRBuilderクラス

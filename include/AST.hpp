@@ -108,7 +108,7 @@ public:
 	FunctionStmtAST() {}
 	~FunctionStmtAST();
 	bool addVariableDeclaration(VariableDeclAST* vdecl);
-	bool addStatement(BaseAST* stmt) { StmtLists.push_back(stmt); }
+	bool addStatement(BaseAST* stmt) { StmtLists.push_back(stmt); return true; }
 	VariableDeclAST* getVariableDecl(int i) { if (i < VariableDecls.size()) { return VariableDecls.at(i); } else { return NULL; } }
 	BaseAST* getStatement(int i) { if (i < StmtLists.size()) { return StmtLists.at(i); } else { return NULL; } }
 };
