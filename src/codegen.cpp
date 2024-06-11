@@ -280,6 +280,83 @@ llvm::Value* CodeGen::generateCallExpression(CallExprAST* call_expr) {
 	std::vector<llvm::Value*> arg_vec;
 	BaseAST* arg;
 	llvm::Value* arg_v;
+	for (int i = 0; ; i++) {
+		if (not (arg = call_expr->getArgs(i))) {
+			break;
+		}
+		// isCall
+		if (llvm::isa<CallExprAST>(arg)) {
+			arg_v = generateCallExpression(llvm::dyn_cast<CallExprAST>(arg));
+		} else if (llvm::isa<BinaryExprAST>(arg)) { // isBinaryExpr
+			BinaryExprAST* bin_expr = llvm::dyn_cast<BinaryExprAST>(arg);
+			// 二項演算命令を生成
+			arg_v = generateBinaryExpression(llvm::dyn_cast<BinaryExprAST>(arg));
+			// 代入のときはLoad命令を追加
+			if (bin_expr->getOp() == "=") {
+				VariableAST* var = llvm::dyn_cast<VariableAST>(bin_expr->getLHS());
+				std::string argName = var->getName();
+				llvm::Argument* arg = NULL;
+				for (llvm::Argument& a : CurFunc->args()) {
+					if (a.getName() == argName) {
+						arg = &a;
+						break;
+					}
+				}
+				arg_v = Builder->CreateLoad(arg, "arg_val");
+			}
+		} else if (llvm::isa<VariableAST>(arg)) { // isVar
+			arg_v = generateVariable(llvm::dyn_cast<VariableAST>(arg));
+		} else if (llvm::isa<NumberAST>(arg)) { // isNumber
+			NumberAST* num = llvm::dyn_cast<NumberAST>(arg);
+			arg_v = generateNumber(num->getNumberValue());
+		}
+		arg_vec.push_back(arg_v);
+	}
+	return Builder->CreateCall(Mod->getFunction(call_expr->getCallee()), arg_vec, "call_tmp");
+}
+
+/*
+ * ジャンプ(今回はreturn命令のみ)生成メソッド
+ * @param JumpStmtAST
+ * @return 生成したValueのポインタ
+ */
+llvm::Value* CodeGen::generateJumpStatement(JumpStmtAST* jump_stmt) {
+	BaseAST* expr = jump_stmt->getExpr();
+	llvm::Value* ret_v;
+	if (llvm::isa<BinaryExprAST>(expr)) {
+		ret_v = generateBinaryExpression(llvm::dyn_cast<BinaryExprAST>(expr));
+	} else if (llvm::isa<VariableAST>(expr)) {
+		VariableAST* var = llvm::dyn_cast<VariableAST>(expr);
+		ret_v = generateVariable(var);
+	} else if (llvm::isa<NumberAST>(expr)) {
+		NumberAST* num = llvm::dyn_cast<NumberAST>(expr);
+		ret_v = generateNumber(num->getNumberValue());
+	}
+	Builder->CreateRet(ret_v);
+	return ret_v; // 確かめる
+}
+
+/*
+ * 変数参照(load命令)生成メソッド
+ * @param VariableAST
+ * @return 生成したValueのポインタ
+ */
+llvm::Value* CodeGen::generateVariable(VariableAST* var) {
+	std::string argName = var->getName();
+	llvm::Argument* arg = NULL;
+	for (llvm::Argument& a : CurFunc->args()) {
+		if (a.getName() == argName) {
+			arg = &a;
+			break;
+		}
+	}
+	return Builder->CreateLoad(arg, "var_tmp");
+}
+
+llvm::Value* CodeGen::generateNumber(int value) {
+	return llvm::ConstantInt::get(llvm::Type::getInt32Ty(TheContext), value);
+}
+
+bool CodeGen::linkModule(llvm::Module* dest, std::string file_name) {
 	// TODO
-	// llvm::ValueSymbolTable& vs_table = CurFunc->getValueSymbolTable();
 }
