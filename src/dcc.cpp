@@ -147,18 +147,17 @@ int main(int argc, char** argv)
 		exit(1);
 	}
 
-	// llvm::PassBuilder pass_builder;
-	// llvm::PassBuilder pm(&mod);
+	llvm::legacy::PassManager pm;
 
-	// // SSA化
-	// pm.addPass(llvm::createPromoteMemoryToRegisterPass());
+	// SSA化
+	pm.add(llvm::createPromoteMemoryToRegisterPass());
 
-	// // 出力
-	// std::error_code error;
-	// llvm::raw_fd_ostream raw_stream(llvm::StringRef(opt.getOutputFileName().c_str()), error);
-	// pm.addPass(llvm::createPrintModulePass(raw_stream));
-	// pm.run
-	// raw_stream.close();
+	// 出力
+	std::error_code error;
+	llvm::raw_fd_ostream raw_stream(llvm::StringRef(opt.getOutputFileName().c_str()), error);
+	pm.add(llvm::createPrintModulePass(raw_stream));
+	pm.run(mod);
+	raw_stream.close();
 
 	// delete
 	SAFE_DELETE(parser);

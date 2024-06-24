@@ -164,17 +164,23 @@ llvm::Value* CodeGen::generateFunctionStatement(FunctionStmtAST* func_stmt) {
 llvm::Value* CodeGen::generateVariableDeclaration(VariableDeclAST* v_decl) {
 	// create alloca
 	llvm::AllocaInst* alloca = Builder->CreateAlloca(llvm::Type::getInt32Ty(TheContext), 0, v_decl->getName());
+	llvm::errs() << "gVD: " << v_decl->getName() << '\n';
+
 	// if args alloca
 	if (v_decl->getType() == VariableDeclAST::param) {
 		// Find the argument in the function's argument list
 		std::string argName = v_decl->getName().append("_arg");
+		// llvm::errs() << v_decl->getName() << '\n';
+		// llvm::errs() << argName << '\n';
 		llvm::Argument* arg = NULL;
 		for (llvm::Argument& a : CurFunc->args()) {
+			// llvm::errs() << a.getName() << "\n";
 			if (a.getName() == argName) {
 				arg = &a;
 				break;
 			}
 		}
+		// llvm::errs() << arg->getName() << '\n';
 		if (arg) {
 			// store args
 			Builder->CreateStore(arg, alloca);
@@ -219,19 +225,24 @@ llvm::Value* CodeGen::generateBinaryExpression(BinaryExprAST* bin_expr) {
 	if (bin_expr->getOp() == "=") {
 		// lhs is variable
 		VariableAST* lhs_var = llvm::dyn_cast<VariableAST>(lhs);
-		// Find the argument in the function's argument list
-		std::string argName = lhs_var->getName();
-		llvm::Argument* arg = NULL;
-		for (llvm::Argument& a : CurFunc->args()) {
-			if (a.getName() == argName) {
-				arg = &a;
+		std::string varName = lhs_var->getName();
+		llvm::Value* local_var = NULL;
+		// llvm::Argument* arg = NULL;
+		for (llvm::BasicBlock& bb : *CurFunc) {
+			for (llvm::Instruction& i : bb) {
+				if (i.getName() == varName) {
+					local_var = &i;
+					break;
+				}
+			}
+			if (local_var) {
 				break;
 			}
 		}
-		if (arg) {
-			lhs_v = arg;
+		if (local_var) {
+			lhs_v = local_var;
 		} else {
-			llvm::errs() << "Argument not found: " << argName << "\n";
+			llvm::errs() << "Variable not found: " << varName << "\n";
 		}
 	} else { // other operand
 		// lhs = ?
@@ -268,6 +279,8 @@ llvm::Value* CodeGen::generateBinaryExpression(BinaryExprAST* bin_expr) {
 		return Builder->CreateMul(lhs_v, rhs_v, "mul_tmp");
 	} else if (bin_expr->getOp() == "/") { //div
 		return Builder->CreateSDiv(lhs_v, rhs_v, "div_tmp");
+	} else {
+		return NULL;
 	}
 }
 
@@ -294,15 +307,22 @@ llvm::Value* CodeGen::generateCallExpression(CallExprAST* call_expr) {
 			// 代入のときはLoad命令を追加
 			if (bin_expr->getOp() == "=") {
 				VariableAST* var = llvm::dyn_cast<VariableAST>(bin_expr->getLHS());
-				std::string argName = var->getName();
-				llvm::Argument* arg = NULL;
-				for (llvm::Argument& a : CurFunc->args()) {
-					if (a.getName() == argName) {
-						arg = &a;
+
+				std::string varName = var->getName();
+				llvm::Value* local_var = NULL;
+				// llvm::Argument* arg = NULL;
+				for (llvm::BasicBlock& bb : *CurFunc) {
+					for (llvm::Instruction& i : bb) {
+						if (i.getName() == varName) {
+							local_var = &i;
+							break;
+						}
+					}
+					if (local_var) {
 						break;
 					}
 				}
-				arg_v = Builder->CreateLoad(arg, "arg_val");
+				arg_v = Builder->CreateLoad(local_var, "arg_val");
 			}
 		} else if (llvm::isa<VariableAST>(arg)) { // isVar
 			arg_v = generateVariable(llvm::dyn_cast<VariableAST>(arg));
@@ -342,21 +362,32 @@ llvm::Value* CodeGen::generateJumpStatement(JumpStmtAST* jump_stmt) {
  * @return 生成したValueのポインタ
  */
 llvm::Value* CodeGen::generateVariable(VariableAST* var) {
-	std::string argName = var->getName();
-	llvm::Argument* arg = NULL;
-	for (llvm::Argument& a : CurFunc->args()) {
-		if (a.getName() == argName) {
-			arg = &a;
+
+	std::string varName = var->getName();
+	llvm::Value* local_var = NULL;
+	// llvm::Argument* arg = NULL;
+	for (llvm::BasicBlock& bb : *CurFunc) {
+		for (llvm::Instruction& i : bb) {
+			if (i.getName() == varName) {
+				local_var = &i;
+				break;
+			}
+		}
+		if (local_var) {
 			break;
 		}
 	}
-	return Builder->CreateLoad(arg, "var_tmp");
+	if (local_var) {
+		return Builder->CreateLoad(local_var, "var_tmp");
+	} else {
+		assert(0);
+	}
 }
 
 llvm::Value* CodeGen::generateNumber(int value) {
 	return llvm::ConstantInt::get(llvm::Type::getInt32Ty(TheContext), value);
 }
-
 bool CodeGen::linkModule(llvm::Module* dest, std::string file_name) {
 	// TODO
+	return false;
 }
