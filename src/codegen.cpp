@@ -164,7 +164,7 @@ llvm::Value* CodeGen::generateFunctionStatement(FunctionStmtAST* func_stmt) {
 llvm::Value* CodeGen::generateVariableDeclaration(VariableDeclAST* v_decl) {
 	// create alloca
 	llvm::AllocaInst* alloca = Builder->CreateAlloca(llvm::Type::getInt32Ty(TheContext), 0, v_decl->getName());
-	llvm::errs() << "gVD: " << v_decl->getName() << '\n';
+	// llvm::errs() << "gVD: " << v_decl->getName() << '\n';
 
 	// if args alloca
 	if (v_decl->getType() == VariableDeclAST::param) {

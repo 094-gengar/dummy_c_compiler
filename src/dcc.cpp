@@ -150,7 +150,7 @@ int main(int argc, char** argv)
 	llvm::legacy::PassManager pm;
 
 	// SSA化
-	pm.add(llvm::createPromoteMemoryToRegisterPass());
+	// pm.add(llvm::createPromoteMemoryToRegisterPass());
 
 	// 出力
 	std::error_code error;
