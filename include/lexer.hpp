@@ -29,7 +29,7 @@ typedef class Token {
 private:
 	TokenType Type;
 	std::string TokenString;
-	int Number; // TODO
+	int64_t Number; // TODO
 	int Line;
 
 public:
@@ -45,7 +45,7 @@ public:
 
 	TokenType getTokenType() { return Type; }
 	std::string getTokenString() { return TokenString; }
-	int getNumberValue() { return Number; }
+	int64_t getNumberValue() { return Number; }
 	bool setLine(int line) { Line = line; return true; }
 	int getLine() { return Line; }
 } Token;
@@ -69,7 +69,7 @@ public:
 	Token getToken();
 	TokenType getCurType() { return Tokens[CurIndex]->getTokenType(); }
 	std::string getCurString() { return Tokens[CurIndex]->getTokenString(); }
-	int getCurNumVal() { return Tokens[CurIndex]->getNumberValue(); }
+	int64_t getCurNumVal() { return Tokens[CurIndex]->getNumberValue(); }
 	bool printTokens();
 	int getCurIndex() { return CurIndex; }
 	bool applyTokenIndex(int index) { CurIndex = index; return true; }

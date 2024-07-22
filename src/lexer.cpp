@@ -89,6 +89,7 @@ TokenStream* LexicalAnalysis(std::string input_filename) {
 					next_char == '+' or
 					next_char == '-' or
 					next_char == '=' or
+					next_char == '$' or // 注釈
 					next_char == ';' or
 					next_char == ',' or
 					next_char == '(' or

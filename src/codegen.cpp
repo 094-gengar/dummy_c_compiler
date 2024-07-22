@@ -1,5 +1,14 @@
 #include "codegen.hpp"
 
+#include <llvm/IR/Metadata.h>
+#include <llvm/Support/Error.h>
+
+
+#include <unordered_map>
+
+std::unordered_map<std::string, int64_t> mp{};
+std::unordered_map<std::string, llvm::AllocaInst*> decl_mp{};
+
 /*
  * コンストラクタ
  */
@@ -111,9 +120,9 @@ llvm::Function* CodeGen::generatePrototype(PrototypeAST* proto, llvm::Module* mo
 		}
 	}
 	// create arg_types
-	std::vector<llvm::Type*> int_types(proto->getParamNum(), llvm::Type::getInt32Ty(TheContext)); // TODO
+	std::vector<llvm::Type*> int_types(proto->getParamNum(), llvm::Type::getInt64Ty(TheContext)); // TODO
 	// create func type
-	llvm::FunctionType* func_type = llvm::FunctionType::get(llvm::Type::getInt32Ty(TheContext), int_types, false);
+	llvm::FunctionType* func_type = llvm::FunctionType::get(llvm::Type::getInt64Ty(TheContext), int_types, false);
 	// create function
 	func = llvm::Function::Create(func_type, llvm::Function::ExternalLinkage, proto->getName(), mod);
 	// set names
@@ -163,24 +172,25 @@ llvm::Value* CodeGen::generateFunctionStatement(FunctionStmtAST* func_stmt) {
  */
 llvm::Value* CodeGen::generateVariableDeclaration(VariableDeclAST* v_decl) {
 	// create alloca
-	llvm::AllocaInst* alloca = Builder->CreateAlloca(llvm::Type::getInt32Ty(TheContext), 0, v_decl->getName());
-	// llvm::errs() << "gVD: " << v_decl->getName() << '\n';
+	llvm::AllocaInst* alloca = Builder->CreateAlloca(llvm::Type::getInt64Ty(TheContext), 0, v_decl->getName());
+	decl_mp[v_decl->getName()] = alloca;
+	//        llvm::errs() << "gVD: " << v_decl->getName() << '\n';
 
 	// if args alloca
 	if (v_decl->getType() == VariableDeclAST::param) {
 		// Find the argument in the function's argument list
 		std::string argName = v_decl->getName().append("_arg");
-		// llvm::errs() << v_decl->getName() << '\n';
-		// llvm::errs() << argName << '\n';
+		//        llvm::errs() << v_decl->getName() << '\n';
+		//        llvm::errs() << argName << '\n';
 		llvm::Argument* arg = NULL;
 		for (llvm::Argument& a : CurFunc->args()) {
-			// llvm::errs() << a.getName() << "\n";
+			//        llvm::errs() << a.getName() << "\n";
 			if (a.getName() == argName) {
 				arg = &a;
 				break;
 			}
 		}
-		// llvm::errs() << arg->getName() << '\n';
+		//        llvm::errs() << arg->getName() << '\n';
 		if (arg) {
 			// store args
 			Builder->CreateStore(arg, alloca);
@@ -244,6 +254,8 @@ llvm::Value* CodeGen::generateBinaryExpression(BinaryExprAST* bin_expr) {
 		} else {
 			llvm::errs() << "Variable not found: " << varName << "\n";
 		}
+	} else if (bin_expr->getOp() == "$") {
+		/* pass */
 	} else { // other operand
 		// lhs = ?
 		// Binary?
@@ -270,15 +282,57 @@ llvm::Value* CodeGen::generateBinaryExpression(BinaryExprAST* bin_expr) {
 
 	if (bin_expr->getOp() == "=") {
 		// store
-		return Builder->CreateStore(rhs_v, lhs_v);
+		// llvm::errs() << rhs_v->getName() << '\n';
+		if (mp.count(rhs_v->getName())) {
+			mp[lhs_v->getName()] = mp[rhs_v->getName()];
+			// llvm::errs() << "=, mp[lhs_v->getName()] : " << mp[lhs_v->getName()] << '\n';
+		}
+		auto tmp = Builder->CreateStore(rhs_v, lhs_v);
+		llvm::MDNode* Node = llvm::MDNode::get(TheContext, llvm::MDString::get(TheContext, std::to_string(mp[lhs_v->getName()])));
+		llvm::cast<llvm::Instruction>(tmp)->setMetadata("upper_data", Node);
+		return tmp;
+		// assert(lhs->getUpper() == Infty);
+		// lhs->UpdateUpper(rhs->getUpper());
+		//       llvm::errs() << lhs->getUpper() << '\n';
 	} else if (bin_expr->getOp() == "+") { // add
-		return Builder->CreateAdd(lhs_v, rhs_v, "add_tmp");
+		auto tmp = Builder->CreateAdd(lhs_v, rhs_v, "add_tmp");
+		// llvm::errs() << lhs_v->getName() << '\n';
+		// llvm::errs() << rhs_v->getName() << '\n';
+		mp[tmp->getName()] = mp[lhs_v->getName()] + mp[rhs_v->getName()];
+		// llvm::errs() << "+, mp[tmp->getName()] : " << mp[tmp->getName()] << '\n';
+		llvm::MDNode* Node = llvm::MDNode::get(TheContext, llvm::MDString::get(TheContext, std::to_string(mp[tmp->getName()])));
+		llvm::cast<llvm::Instruction>(tmp)->setMetadata("upper_data", Node);
+		return tmp;
 	} else if (bin_expr->getOp() == "-") { // sub
-		return Builder->CreateSub(lhs_v, rhs_v, "sub_tmp");
+		auto tmp = Builder->CreateSub(lhs_v, rhs_v, "sub_tmp");
+		mp[tmp->getName()] = mp[lhs_v->getName()] - mp[rhs_v->getName()];
+		llvm::MDNode* Node = llvm::MDNode::get(TheContext, llvm::MDString::get(TheContext, std::to_string(mp[tmp->getName()])));
+		llvm::cast<llvm::Instruction>(tmp)->setMetadata("upper_data", Node);
+		// llvm::errs() << "mp[tmp->getName()] : " << mp[tmp->getName()] << '\n';
+		return tmp;
 	} else if (bin_expr->getOp() == "*") { // mul
-		return Builder->CreateMul(lhs_v, rhs_v, "mul_tmp");
-	} else if (bin_expr->getOp() == "/") { //div
-		return Builder->CreateSDiv(lhs_v, rhs_v, "div_tmp");
+		auto tmp = Builder->CreateMul(lhs_v, rhs_v, "mul_tmp");
+		mp[tmp->getName()] = mp[lhs_v->getName()] * mp[rhs_v->getName()];
+		llvm::MDNode* Node = llvm::MDNode::get(TheContext, llvm::MDString::get(TheContext, std::to_string(mp[tmp->getName()])));
+		llvm::cast<llvm::Instruction>(tmp)->setMetadata("upper_data", Node);
+		// llvm::errs() << "mp[tmp->getName()] : " << mp[tmp->getName()] << '\n';
+		return tmp;
+	} else if (bin_expr->getOp() == "/") { // div
+		auto tmp = Builder->CreateSDiv(lhs_v, rhs_v, "div_tmp");
+		mp[tmp->getName()] = mp[lhs_v->getName()] / mp[rhs_v->getName()];
+		llvm::MDNode* Node = llvm::MDNode::get(TheContext, llvm::MDString::get(TheContext, std::to_string(mp[tmp->getName()])));
+		llvm::cast<llvm::Instruction>(tmp)->setMetadata("upper_data", Node);
+		// llvm::errs() << "mp[tmp->getName()] : " << mp[tmp->getName()] << '\n';
+		return tmp;
+	} else if (bin_expr->getOp() == "$") { // 注釈
+		assert(llvm::isa<VariableAST>(lhs));
+		assert(llvm::isa<NumberAST>(rhs));
+		mp[llvm::dyn_cast<VariableAST>(lhs)->getName()] = llvm::dyn_cast<NumberAST>(rhs)->getNumberValue();
+		llvm::MDNode* Node = llvm::MDNode::get(TheContext, llvm::MDString::get(TheContext, std::to_string(mp[llvm::dyn_cast<VariableAST>(lhs)->getName()])));
+		llvm::cast<llvm::Instruction>(decl_mp[llvm::dyn_cast<VariableAST>(lhs)->getName()])->setMetadata("upper_data", Node);
+		// lhs->UpdateUpper(rhs->getUpper());
+		// llvm::errs() << "$, mp[lhs_v->getName()] : " << mp[llvm::dyn_cast<VariableAST>(lhs)->getName()] << '\n';
+		return NULL;
 	} else {
 		return NULL;
 	}
@@ -362,7 +416,6 @@ llvm::Value* CodeGen::generateJumpStatement(JumpStmtAST* jump_stmt) {
  * @return 生成したValueのポインタ
  */
 llvm::Value* CodeGen::generateVariable(VariableAST* var) {
-
 	std::string varName = var->getName();
 	llvm::Value* local_var = NULL;
 	// llvm::Argument* arg = NULL;
@@ -378,14 +431,24 @@ llvm::Value* CodeGen::generateVariable(VariableAST* var) {
 		}
 	}
 	if (local_var) {
-		return Builder->CreateLoad(local_var, "var_tmp");
+		auto tmp = Builder->CreateLoad(local_var, "var_tmp");
+		// llvm::errs() << local_var->getName() << '\n';
+		// llvm::errs() << tmp->getName() << '\n';
+		if (mp.count(local_var->getName())) {
+			// llvm::errs() << "hoge" << '\n';
+			// llvm::errs() << mp[local_var->getName()] << '\n';
+			mp[tmp->getName()] = mp[local_var->getName()];
+			llvm::MDNode* Node = llvm::MDNode::get(TheContext, llvm::MDString::get(TheContext, std::to_string(mp[tmp->getName()])));
+			llvm::cast<llvm::Instruction>(tmp)->setMetadata("upper_data", Node);
+		}
+		return tmp;
 	} else {
 		assert(0);
 	}
 }
 
-llvm::Value* CodeGen::generateNumber(int value) {
-	return llvm::ConstantInt::get(llvm::Type::getInt32Ty(TheContext), value);
+llvm::Value* CodeGen::generateNumber(int64_t value) {
+	return llvm::ConstantInt::get(llvm::Type::getInt64Ty(TheContext), value);
 }
 bool CodeGen::linkModule(llvm::Module* dest, std::string file_name) {
 	// TODO

@@ -1,4 +1,4 @@
-; ModuleID = './sample/test.dc'
+; ModuleID = './sample/optimized.bc'
 source_filename = "./sample/test.dc"
 
 declare i64 @printnum(i64)

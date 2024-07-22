@@ -5,6 +5,7 @@
 #include <map>
 #include <vector>
 #include <llvm/Support/Casting.h>
+#include <llvm/Support/Error.h>
 #include "APP.hpp"
 
 //
@@ -41,13 +42,19 @@ enum AstID {
 	NumberID
 };
 
+const int64_t Infty = (int64_t)(INT32_MAX) << 2;
+
 // 基底
 class BaseAST {
 	AstID ID;
+	// int64_t Upper;
 public:
 	BaseAST(AstID id) : ID(id) {}
+	// BaseAST(AstID id) : ID(id), Upper(Infty) {}
 	virtual ~BaseAST() {}
 	AstID getValueID() const { return ID; }
+	// void UpdateUpper(int64_t x) { Upper = x; }
+	// int64_t getUpper() { return Upper; }	
 };
 
 // ソースコード
@@ -141,7 +148,9 @@ class BinaryExprAST : public BaseAST {
 	BaseAST* LHS, * RHS;
 public:
 	BinaryExprAST(std::string op, BaseAST* lhs, BaseAST* rhs)
-		: BaseAST(BinaryExprID), Op(op), LHS(lhs), RHS(rhs) {}
+		: BaseAST(BinaryExprID), Op(op), LHS(lhs), RHS(rhs) {
+		// (*this).UpdateUpper(lhs->getUpper() + rhs->getUpper());
+	}
 	~BinaryExprAST() { SAFE_DELETE(LHS); SAFE_DELETE(RHS); }
 	static inline bool classof(BinaryExprAST const*) { return true; }
 	static inline bool classof(BaseAST const* base) {
@@ -206,11 +215,13 @@ public:
 
 // 整数
 class NumberAST : public BaseAST {
-	int Val; // TODO
+	int64_t Val; // TODO
 public:
-	NumberAST(int val) : BaseAST(NumberID), Val(val) {};
+	NumberAST(int64_t val) : BaseAST(NumberID), Val(val) {
+		//  (*this).UpdateUpper(val);
+	};
 	~NumberAST() {}
-	int getNumberValue() { return Val; }
+	int64_t getNumberValue() { return Val; }
 	static inline bool classof(NumberAST const*) { return true; }
 	static inline bool classof(BaseAST const* base) {
 		return base->getValueID() == NumberID;

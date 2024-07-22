@@ -1,12 +1,15 @@
-int test(int j){
-	int i;
-	i=j*10;
-	return i;
-}
+int main() {
+	int a;
+	int b;
+	int c;
+	int d;
 
-int main(){
-	int i;
-	i=10;
-    printnum(test(i));
+	a $ 1000;
+	b $ 1000;
+
+	a = input();
+	b = input();
+	c = a + b;
+	d = c * (c * c);
 	return 0;
 }

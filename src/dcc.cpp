@@ -149,7 +149,7 @@ int main(int argc, char** argv)
 
 	llvm::legacy::PassManager pm;
 
-	// SSA化
+	// mem2regを適用
 	// pm.add(llvm::createPromoteMemoryToRegisterPass());
 
 	// 出力
