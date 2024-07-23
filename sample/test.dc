@@ -7,9 +7,11 @@ int main() {
 	a $ 1000;
 	b $ 1000;
 
-	a = input();
-	b = input();
+	a = inputnum();
+	printnum(a);
+	b = inputnum();
 	c = a + b;
 	d = c * (c * c);
+	printnum(d);
 	return 0;
 }

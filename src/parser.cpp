@@ -41,9 +41,9 @@ bool Parser::visitTranslationUnit() {
 	std::vector<std::string> param_list;
 	param_list.push_back("i");
 	TU->addPrototype(new PrototypeAST("printnum", param_list));
-	TU->addPrototype(new PrototypeAST("input", std::vector<std::string>{}));
+	TU->addPrototype(new PrototypeAST("inputnum", std::vector<std::string>{}));
 	PrototypeTable["printnum"] = 1;
-	PrototypeTable["input"] = 0;
+	PrototypeTable["inputnum"] = 0;
 	// ExternalDecl
 	while (true) {
 		if (not visitExternalDeclaration(TU)) {

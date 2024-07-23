@@ -1,6 +1,6 @@
 #include <stdio.h>
+#include <stdint.h>
 
-// TODO
-int printnum(int i) {
-	return printf("%d\n", i);
+int64_t printnum(int64_t i) {
+	return printf("%lld\n", i);
 }
