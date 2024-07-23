@@ -8,10 +8,10 @@ int main() {
 	b $ 1000;
 
 	a = inputnum();
-	printnum(a);
 	b = inputnum();
+	printnum(a);
 	c = a + b;
-	d = c * (c * c);
+	d = (c * c) * c;
 	printnum(d);
 	return 0;
 }

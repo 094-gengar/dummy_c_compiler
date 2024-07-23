@@ -9,7 +9,7 @@
 
 using namespace llvm;
 
-struct MetadataCollectorPass : public FunctionPass {
+struct DowncastPass : public FunctionPass {
 	static char ID;
 	std::unordered_map<std::string, int64_t> upper_mp;
 	bool low_q(const std::string& s) {
@@ -17,7 +17,7 @@ struct MetadataCollectorPass : public FunctionPass {
 	}
 	// std::unordered_map<std::string, std::pair<std::string, std::string>> varpair_mp;
 
-	MetadataCollectorPass() : FunctionPass(ID) {}
+	DowncastPass() : FunctionPass(ID) {}
 
 	bool runOnFunction(Function& F) override {
 		upper_mp.clear();
@@ -223,5 +223,5 @@ struct MetadataCollectorPass : public FunctionPass {
 	}
 };
 
-char MetadataCollectorPass::ID = 0;
-static RegisterPass<MetadataCollectorPass> X("downcastpass", "");
+char DowncastPass::ID = 0;
+static RegisterPass<DowncastPass> X("downcastpass", "");
