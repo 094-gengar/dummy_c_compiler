@@ -42,6 +42,12 @@ llvm-link ./sample/test.ll ./lib/printnum.ll ./lib/inputnum.ll -S -o ./sample/li
 llvm-link ./sample/optimized.ll ./lib/printnum.ll ./lib/inputnum.ll -S -o ./sample/linked_optimized.ll
 ```
 
+- linkしたファイルの実行
+```
+lli ./sample/linked_normal.ll 
+lli ./sample/linked_optimized.ll 
+```
+
 ## 
 
 ## TODO
