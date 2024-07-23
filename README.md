@@ -26,6 +26,11 @@ opt -load ./pass/downcast/downcast.so -downcastpass < ./sample/test.ll -o ./samp
 llvm-dis -o ./sample/optimized.ll ./sample/optimized.bc
 ```
 
+```
+llvm-link ./sample/test.ll ./lib/printnum.ll ./lib/inputnum.ll -S -o ./sample/linked_normal.ll
+llvm-link ./sample/optimized.ll ./lib/printnum.ll ./lib/inputnum.ll -S -o ./sample/linked_optimized.ll
+```
+
 ## 実行
 ```
 ./bin/dcc ./sample/test.dc -o ./sample/test.ll

@@ -3,6 +3,6 @@
 
 int64_t inputnum() {
 	int64_t ret;
-	scanf("%lld", &ret);
+	scanf("%ld", &ret);
 	return ret;
 }
