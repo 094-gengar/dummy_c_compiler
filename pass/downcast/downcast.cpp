@@ -117,7 +117,7 @@ struct DowncastPass : public FunctionPass {
 					// errs() << name << "\n";
 				}
 				// tmpがi32になるべきなときは絶対にebする
-				if (flag or low_q(tmp_name)) InstructionsToReplace.emplace_back(BinOp);
+				if (flag or low_q(tmp_name) or true) InstructionsToReplace.emplace_back(BinOp);
 			} else if (auto* Call = dyn_cast<CallInst>(&I)) {
 				// errs() << Call->getCalledFunction()->getName() << "\n";
 				if (Call->getCalledFunction()->getName() == "printnum") {
@@ -176,6 +176,14 @@ struct DowncastPass : public FunctionPass {
 				Value* op1 = BinOp->getOperand(0);
 				Value* op2 = BinOp->getOperand(1);
 				if (upper_mp.count(tmp_name) and upper_mp.at(tmp_name) <= INT32_MAX) { // i32
+					if (isa<ConstantInt>(op1)) {
+						op1 = llvm::ConstantInt::get(llvm::Type::getInt32Ty(F.getContext()), dyn_cast<ConstantInt>(op1)->getValue().sextOrTrunc(32));
+						// errs() << "hoge\n";
+					}
+					if (isa<ConstantInt>(op2)) {
+						op2 = llvm::ConstantInt::get(llvm::Type::getInt32Ty(F.getContext()), dyn_cast<ConstantInt>(op2)->getValue().sextOrTrunc(32));
+						// errs() << "hoge\n";
+					}
 					// errs() << "fuga: " << op1->getName() << "\n";
 					if (const auto& name = op1->getName().str(); low_q(name) and op1->getType()->isIntegerTy(64)) {
 						op1 = Builder.CreateTrunc(op1, Type::getInt32Ty(F.getContext()));
@@ -189,6 +197,14 @@ struct DowncastPass : public FunctionPass {
 					BinOp->replaceAllUsesWith(NewBinOp);
 					BinOp->eraseFromParent();
 				} else { // i64
+					if (isa<ConstantInt>(op1)) {
+						op1 = llvm::ConstantInt::get(llvm::Type::getInt32Ty(F.getContext()), dyn_cast<ConstantInt>(op1)->getValue().sextOrTrunc(64));
+						// errs() << "hoge\n";
+					}
+					if (isa<ConstantInt>(op2)) {
+						op2 = llvm::ConstantInt::get(llvm::Type::getInt32Ty(F.getContext()), dyn_cast<ConstantInt>(op2)->getValue().sextOrTrunc(64));
+						// errs() << "hoge\n";
+					}
 					// errs() << "piyo: " << op1->getName().str() << "\n";
 					if (const auto& name = op1->getName().str(); op1->getType()->isIntegerTy(32)) {
 						op1 = Builder.CreateSExt(op1, Type::getInt64Ty(F.getContext()));

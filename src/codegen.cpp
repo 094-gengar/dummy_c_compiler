@@ -286,6 +286,8 @@ llvm::Value* CodeGen::generateBinaryExpression(BinaryExprAST* bin_expr) {
 		if (mp.count(rhs_v->getName())) {
 			mp[lhs_v->getName()] = mp[rhs_v->getName()];
 			// llvm::errs() << "=, mp[lhs_v->getName()] : " << mp[lhs_v->getName()] << '\n';
+		} else if (llvm::isa<NumberAST>(rhs)) {
+			mp[lhs_v->getName()] = llvm::dyn_cast<NumberAST>(rhs)->getNumberValue();
 		}
 		auto tmp = Builder->CreateStore(rhs_v, lhs_v);
 		llvm::MDNode* Node = llvm::MDNode::get(TheContext, llvm::MDString::get(TheContext, std::to_string(mp[lhs_v->getName()])));
@@ -298,28 +300,72 @@ llvm::Value* CodeGen::generateBinaryExpression(BinaryExprAST* bin_expr) {
 		auto tmp = Builder->CreateAdd(lhs_v, rhs_v, "add_tmp");
 		// llvm::errs() << lhs_v->getName() << '\n';
 		// llvm::errs() << rhs_v->getName() << '\n';
-		mp[tmp->getName()] = mp[lhs_v->getName()] + mp[rhs_v->getName()];
+		int64_t lval = INT32_MAX, rval = INT32_MAX;
+		if (mp.count(lhs_v->getName())) {
+			lval = mp[lhs_v->getName()];
+		} else if (llvm::isa<NumberAST>(lhs)) {
+			lval = llvm::dyn_cast<NumberAST>(lhs)->getNumberValue();
+		}
+		if (mp.count(rhs_v->getName())) {
+			rval = mp[rhs_v->getName()];
+		} else if (llvm::isa<NumberAST>(rhs)) {
+			rval = llvm::dyn_cast<NumberAST>(rhs)->getNumberValue();
+		}
+		mp[tmp->getName()] = lval + rval;
 		// llvm::errs() << "+, mp[tmp->getName()] : " << mp[tmp->getName()] << '\n';
 		llvm::MDNode* Node = llvm::MDNode::get(TheContext, llvm::MDString::get(TheContext, std::to_string(mp[tmp->getName()])));
 		llvm::cast<llvm::Instruction>(tmp)->setMetadata("upper_data", Node);
 		return tmp;
 	} else if (bin_expr->getOp() == "-") { // sub
 		auto tmp = Builder->CreateSub(lhs_v, rhs_v, "sub_tmp");
-		mp[tmp->getName()] = mp[lhs_v->getName()] - mp[rhs_v->getName()];
+		int64_t lval = INT32_MAX, rval = INT32_MAX;
+		if (mp.count(lhs_v->getName())) {
+			lval = mp[lhs_v->getName()];
+		} else if (llvm::isa<NumberAST>(lhs)) {
+			lval = llvm::dyn_cast<NumberAST>(lhs)->getNumberValue();
+		}
+		if (mp.count(rhs_v->getName())) {
+			rval = mp[rhs_v->getName()];
+		} else if (llvm::isa<NumberAST>(rhs)) {
+			rval = llvm::dyn_cast<NumberAST>(rhs)->getNumberValue();
+		}
+		mp[tmp->getName()] = lval - rval;
 		llvm::MDNode* Node = llvm::MDNode::get(TheContext, llvm::MDString::get(TheContext, std::to_string(mp[tmp->getName()])));
 		llvm::cast<llvm::Instruction>(tmp)->setMetadata("upper_data", Node);
 		// llvm::errs() << "mp[tmp->getName()] : " << mp[tmp->getName()] << '\n';
 		return tmp;
 	} else if (bin_expr->getOp() == "*") { // mul
 		auto tmp = Builder->CreateMul(lhs_v, rhs_v, "mul_tmp");
-		mp[tmp->getName()] = mp[lhs_v->getName()] * mp[rhs_v->getName()];
+		int64_t lval = INT32_MAX, rval = INT32_MAX;
+		if (mp.count(lhs_v->getName())) {
+			lval = mp[lhs_v->getName()];
+		} else if (llvm::isa<NumberAST>(lhs)) {
+			lval = llvm::dyn_cast<NumberAST>(lhs)->getNumberValue();
+		}
+		if (mp.count(rhs_v->getName())) {
+			rval = mp[rhs_v->getName()];
+		} else if (llvm::isa<NumberAST>(rhs)) {
+			rval = llvm::dyn_cast<NumberAST>(rhs)->getNumberValue();
+		}
+		mp[tmp->getName()] = lval * rval;
 		llvm::MDNode* Node = llvm::MDNode::get(TheContext, llvm::MDString::get(TheContext, std::to_string(mp[tmp->getName()])));
 		llvm::cast<llvm::Instruction>(tmp)->setMetadata("upper_data", Node);
 		// llvm::errs() << "mp[tmp->getName()] : " << mp[tmp->getName()] << '\n';
 		return tmp;
 	} else if (bin_expr->getOp() == "/") { // div
 		auto tmp = Builder->CreateSDiv(lhs_v, rhs_v, "div_tmp");
-		mp[tmp->getName()] = mp[lhs_v->getName()] / mp[rhs_v->getName()];
+		int64_t lval = INT32_MAX, rval = INT32_MAX;
+		if (mp.count(lhs_v->getName())) {
+			lval = mp[lhs_v->getName()];
+		} else if (llvm::isa<NumberAST>(lhs)) {
+			lval = llvm::dyn_cast<NumberAST>(lhs)->getNumberValue();
+		}
+		if (mp.count(rhs_v->getName())) {
+			rval = mp[rhs_v->getName()];
+		} else if (llvm::isa<NumberAST>(rhs)) {
+			rval = llvm::dyn_cast<NumberAST>(rhs)->getNumberValue();
+		}
+		mp[tmp->getName()] = lval / rval;
 		llvm::MDNode* Node = llvm::MDNode::get(TheContext, llvm::MDString::get(TheContext, std::to_string(mp[tmp->getName()])));
 		llvm::cast<llvm::Instruction>(tmp)->setMetadata("upper_data", Node);
 		// llvm::errs() << "mp[tmp->getName()] : " << mp[tmp->getName()] << '\n';

@@ -48,6 +48,51 @@ lli ./sample/linked_normal.ll
 lli ./sample/linked_optimized.ll 
 ```
 
+```
+./bin/dcc ./sample/test.dc -o ./sample/test.ll
+opt -load ./pass/downcast/downcast.so -downcastpass < ./sample/test.ll -o ./sample/optimized.bc
+llvm-dis -o ./sample/optimized.ll ./sample/optimized.bc
+llvm-link ./sample/test.ll ./lib/printnum.ll ./lib/inputnum.ll -S -o ./sample/linked_normal.ll
+llvm-link ./sample/optimized.ll ./lib/printnum.ll ./lib/inputnum.ll -S -o ./sample/linked_optimized.ll
+opt --O3 -o ./sample/test_O3.bc ./sample/test.ll
+opt --O3 -o ./sample/optimized_O3.bc ./sample/optimized.ll
+llvm-dis -o ./sample/test_O3.ll ./sample/test_O3.bc
+llvm-dis -o ./sample/optimized_O3.ll ./sample/optimized_O3.bc
+llvm-link ./sample/test_O3.ll ./lib/printnum.ll ./lib/inputnum.ll -S -o ./sample/linked_normal_O3.ll
+llvm-link ./sample/optimized_O3.ll ./lib/printnum.ll ./lib/inputnum.ll -S -o ./sample/linked_optimized_O3.ll
+
+llc ./sample/linked_normal.ll -o ./sample/linked_normal.s
+as ./sample/linked_normal.s -o ./sample/linked_normal.o
+clang ./sample/linked_normal.o -o ./sample/linked_normal
+valgrind --tool=massif ./sample/linked_normal
+ms_print massif.out.xxxxx > log.txt
+
+llc ./sample/linked_optimized.ll -o ./sample/linked_optimized.s
+as ./sample/linked_optimized.s -o ./sample/linked_optimized.o
+clang ./sample/linked_optimized.o -o ./sample/linked_optimized
+valgrind --tool=massif ./sample/linked_optimized
+ms_print massif.out.xxxxx > log2.txt
+
+llc ./sample/linked_normal_O3.ll -o ./sample/linked_normal_O3.s
+as ./sample/linked_normal_O3.s -o ./sample/linked_normal_O3.o
+clang ./sample/linked_normal_O3.o -o ./sample/linked_normal_O3
+valgrind --tool=massif ./sample/linked_normal_O3
+ms_print massif.out.xxxxx > log3.txt
+
+llc ./sample/linked_optimized_O3.ll -o ./sample/linked_optimized_O3.s
+as ./sample/linked_optimized_O3.s -o ./sample/linked_optimized_O3.o
+clang ./sample/linked_optimized_O3.o -o ./sample/linked_optimized_O3
+valgrind --tool=massif ./sample/linked_optimized_O3
+
+
+llc ./sample/linked_normal_O3.ll -o ./sample/linked_normal_O3.s
+llc ./sample/linked_optimized_O3.ll -o ./sample/linked_optimized_O3.s
+
+
+
+```
+
+
 ## 
 
 ## TODO

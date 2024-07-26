@@ -1,2 +1,5 @@
 /obj/*
 /bin/*
+/sample/*
+log*.txt
+massif.out.*
