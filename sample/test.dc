@@ -1,4 +1,21 @@
 int main() {
+	int a;
+	int b;
+	int c;
+	int d;
+
+	a $ 1000;
+	b $ 1000;
+
+	a = inputnum();
+	b = inputnum();
+	c = a + b;
+	d = c * (c * c);
+	return 0;
+}
+
+/*
+int main() {
 	int a1;
 	int a2;
 	int a3;
@@ -48,3 +65,4 @@ int main() {
 	printnum(a20);
 	return 0;
 }
+*/
