@@ -4,3 +4,5 @@
 log*.txt
 massif.out.*
 owaREADME.md
+/test/*
+/test_20240901/*

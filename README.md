@@ -56,3 +56,5 @@ lli ./sample/linked_optimized.ll
 - 代入は基本的に一回を想定（渾身の`std::unordered_map`がバグる）
 	- 今回は変数の実装がmutableなものになっているので、将来的にimmutableな変数系の言語でこの機能を再実装したいと思っています
 - `pass/downcast`は実装中（今は`!upper_data`を取り出してくれるようになっている）→実装しました！
+- TODO: 制約`$`のない変数に`inputnum()`すると壊れる
+- TODO: 制約`$`のRHSがオーバーフローする
