@@ -1,5 +1,6 @@
 {
 	"files.associations": {
+		"*.cpp": "cpp",
 		"optional": "cpp",
 		"array": "cpp",
 		"atomic": "cpp",
@@ -57,6 +58,7 @@
 		"streambuf": "cpp",
 		"thread": "cpp",
 		"cinttypes": "cpp",
-		"typeinfo": "cpp"
+		"typeinfo": "cpp",
+		"iostream": "cpp"
 	}
 }

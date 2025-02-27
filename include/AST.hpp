@@ -21,11 +21,15 @@ class FunctionAST;
 class PrototypeAST;
 class FunctionStmtAST;
 class VariableDeclAST;
+
+class ArrayDeclAST;
+
 class BinaryExprAST;
 class NullExprAST;
 class CallExprAST;
 class JumpStmtAST;
 class VariableAST;
+class ArrayAST;
 class NumberAST;
 
 /*
@@ -34,6 +38,7 @@ class NumberAST;
 enum AstID {
 	BaseID,
 	VariableDeclID,
+	ArrayDeclID,
 	BinaryExprID,
 	NullExprID,
 	CallExprID,
@@ -110,13 +115,16 @@ public:
 // 関数定義（本文）
 class FunctionStmtAST {
 	std::vector<VariableDeclAST*> VariableDecls;
+	std::vector<ArrayDeclAST*> ArrayDecls;
 	std::vector<BaseAST*> StmtLists;
 public:
 	FunctionStmtAST() {}
 	~FunctionStmtAST();
 	bool addVariableDeclaration(VariableDeclAST* vdecl);
+	bool addArrayDeclaration(ArrayDeclAST* vdecl);
 	bool addStatement(BaseAST* stmt) { StmtLists.push_back(stmt); return true; }
 	VariableDeclAST* getVariableDecl(int i) { if (i < VariableDecls.size()) { return VariableDecls.at(i); } else { return NULL; } }
+	ArrayDeclAST* getArrayDecl(int i) { if (i < ArrayDecls.size()) { return ArrayDecls.at(i); } else { return NULL; } }
 	BaseAST* getStatement(int i) { if (i < StmtLists.size()) { return StmtLists.at(i); } else { return NULL; } }
 };
 
@@ -139,6 +147,30 @@ public:
 	~VariableDeclAST() {}
 	bool setDeclType(DeclType type) { Type = type; return true; }
 	std::string getName() { return Name; }
+	DeclType getType() { return Type; }
+};
+
+// array decl
+class ArrayDeclAST : public BaseAST {
+public:
+	typedef enum {
+		param,
+		local
+	} DeclType;
+private:
+	std::string Name;
+	size_t Size;
+	DeclType Type;
+public:
+	ArrayDeclAST(const std::string& name, size_t size) : BaseAST(VariableDeclID), Name(name), Size(size) {}
+	static inline bool classof(ArrayDeclAST const*) { return true; }
+	static inline bool classof(BaseAST const* base) {
+		return base->getValueID() == ArrayDeclID;
+	}
+	~ArrayDeclAST() {}
+	bool setDeclType(DeclType type) { Type = type; return true; }
+	std::string getName() { return Name; }
+	size_t getSize() { return Size; }
 	DeclType getType() { return Type; }
 };
 
@@ -200,13 +232,26 @@ public:
 	}
 };
 
-// 変数参照
+// 変数参照（整数）
 class VariableAST : public BaseAST {
 	std::string Name;
 public:
 	VariableAST(const std::string& name) : BaseAST(VariableID), Name(name) {}
 	~VariableAST() {}
 	static inline bool classof(VariableAST const*) { return true; }
+	static inline bool classof(BaseAST const* base) {
+		return base->getValueID() == VariableID;
+	}
+	std::string getName() { return Name; }
+};
+
+// 配列参照
+class ArrayAST : public BaseAST {
+	std::string Name;
+public:
+	ArrayAST(const std::string& name) : BaseAST(VariableID), Name(name) {}
+	~ArrayAST() {}
+	static inline bool classof(ArrayAST const*) { return true; }
 	static inline bool classof(BaseAST const* base) {
 		return base->getValueID() == VariableID;
 	}

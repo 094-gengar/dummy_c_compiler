@@ -20,6 +20,7 @@ private:
 	TranslationUnitAST* TU;
 	// 意味解析用各種識別子表
 	std::vector<std::string> VariableTable;
+	std::vector<std::string> ArrayTable;
 	std::map<std::string, int> PrototypeTable;
 	std::map<std::string, int> FunctionTable;
 
@@ -38,6 +39,7 @@ private:
 	PrototypeAST* visitPrototype();
 	FunctionStmtAST* visitFunctionStatement(PrototypeAST* proto);
 	VariableDeclAST* visitVariableDeclaration();
+	ArrayDeclAST* visitArrayDeclaration(); // new
 	BaseAST* visitStatement();
 	BaseAST* visitExpressionStatement();
 	BaseAST* visitJumpStatement();

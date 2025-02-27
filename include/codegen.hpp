@@ -46,7 +46,8 @@ private:
 	llvm::Function* generateFunctionDefinition(FunctionAST* func, llvm::Module* mod);
 	llvm::Function* generatePrototype(PrototypeAST* proto, llvm::Module* mod);
 	llvm::Value* generateFunctionStatement(FunctionStmtAST* func_stmt);
-	llvm::Value* generateVariableDeclaration(VariableDeclAST* vdecl);
+	llvm::Value* generateVariableDeclaration(VariableDeclAST* v_decl);
+	llvm::Value* generateArrayDeclaration(ArrayDeclAST* a_decl);
 	llvm::Value* generateStatement(BaseAST* stmt);
 	llvm::Value* generateBinaryExpression(BinaryExprAST* bin_expr);
 	llvm::Value* generateCallExpression(CallExprAST* call_expr);

@@ -52,8 +52,10 @@ TokenStream* LexicalAnalysis(std::string input_filename) {
 				index--;
 				if (token_str == "int") {
 					next_token = new Token(token_str, TOK_INT, line_num);
-				} else if(token_str == "return") {
+				} else if (token_str == "return") {
 					next_token = new Token(token_str, TOK_RETURN, line_num);
+				} else if (token_str == "array") {
+					next_token = new Token(token_str, TOK_ARRAY, line_num);
 				} else {
 					next_token = new Token(token_str, TOK_IDENTIFIER, line_num);
 				}
@@ -94,6 +96,8 @@ TokenStream* LexicalAnalysis(std::string input_filename) {
 					next_char == ',' or
 					next_char == '(' or
 					next_char == ')' or
+					next_char == '[' or // NEW
+					next_char == ']' or // NEW
 					next_char == '{' or
 					next_char == '}') {
 					token_str += next_char;

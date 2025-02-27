@@ -74,6 +74,11 @@ bool FunctionStmtAST::addVariableDeclaration(VariableDeclAST* vdecl) {
 	return true;
 }
 
+bool FunctionStmtAST::addArrayDeclaration(ArrayDeclAST* vdecl) {
+	ArrayDecls.push_back(vdecl);
+	return true;
+}
+
 /*
  * デストラクタ
  */

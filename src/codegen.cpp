@@ -6,8 +6,8 @@
 
 #include <unordered_map>
 
-std::unordered_map<std::string, int64_t> mp{};
-std::unordered_map<std::string, llvm::AllocaInst*> decl_mp{};
+std::unordered_map<std::string, int64_t> mp{}, a_mp, a_siz;
+std::unordered_map<std::string, llvm::AllocaInst*> decl_mp{}, decl_a_mp;
 
 /*
  * コンストラクタ
@@ -141,9 +141,19 @@ llvm::Function* CodeGen::generatePrototype(PrototypeAST* proto, llvm::Module* mo
  * @return 最後に生成したValueのポインタ
  */
 llvm::Value* CodeGen::generateFunctionStatement(FunctionStmtAST* func_stmt) {
+	// insert array decls
+	ArrayDeclAST* a_decl;
+	llvm::Value* v = NULL;
+	for (int i = 0; ; i++) {
+		if (not func_stmt->getArrayDecl(i)) {
+			break;
+		}
+		a_decl = llvm::dyn_cast<ArrayDeclAST>(func_stmt->getArrayDecl(i));
+		v = generateArrayDeclaration(a_decl);
+	}
+
 	// insert variable decls
 	VariableDeclAST* v_decl;
-	llvm::Value* v = NULL;
 	for (int i = 0; ; i++) {
 		if (not func_stmt->getVariableDecl(i)) {
 			break;
@@ -204,6 +214,25 @@ llvm::Value* CodeGen::generateVariableDeclaration(VariableDeclAST* v_decl) {
 }
 
 /*
+ * 配列宣言生成メソッド
+ * @param ArrayDeclAST
+ * @return 生成したValueのポインタ
+ */
+llvm::Value* CodeGen::generateArrayDeclaration(ArrayDeclAST* a_decl) {
+	// // TODO
+	// printf("generate decl_array\n");
+	// return NULL;
+
+	// create alloca
+	auto I = llvm::Type::getInt64Ty(TheContext);
+	auto A = llvm::ArrayType::get(I, a_decl->getSize());
+	llvm::AllocaInst* alloca = Builder->CreateAlloca(A, 0, a_decl->getName());
+	decl_a_mp[a_decl->getName()] = alloca;
+	a_siz[a_decl->getName()] = a_decl->getSize();
+	return alloca;
+}
+
+/*
  * ステートメント生成メソッド
  * 実際にはASTの種類を確認して各種生成メソッドを呼び出し
  * @param JumpStmtAST
@@ -256,6 +285,8 @@ llvm::Value* CodeGen::generateBinaryExpression(BinaryExprAST* bin_expr) {
 		}
 	} else if (bin_expr->getOp() == "$") {
 		/* pass */
+	} else if (bin_expr->getOp() == "inc") {
+		/* pass */
 	} else { // other operand
 		// lhs = ?
 		// Binary?
@@ -267,6 +298,9 @@ llvm::Value* CodeGen::generateBinaryExpression(BinaryExprAST* bin_expr) {
 			NumberAST* num = llvm::dyn_cast<NumberAST>(lhs);
 			lhs_v = generateNumber(num->getNumberValue());
 		}
+		// } else if (llvm::isa<ArrayAST>(lhs)) {
+		// 	lhs_v = generateArray(llvm::dyn_cast<ArrayAST>(lhs));
+		// }
 	}
 	// create rhs value
 	if (llvm::isa<BinaryExprAST>(rhs)) {
@@ -365,20 +399,45 @@ llvm::Value* CodeGen::generateBinaryExpression(BinaryExprAST* bin_expr) {
 		} else if (llvm::isa<NumberAST>(rhs)) {
 			rval = llvm::dyn_cast<NumberAST>(rhs)->getNumberValue();
 		}
-		mp[tmp->getName()] = lval / rval;
+		mp[tmp->getName()] = lval;
 		llvm::MDNode* Node = llvm::MDNode::get(TheContext, llvm::MDString::get(TheContext, std::to_string(mp[tmp->getName()])));
 		llvm::cast<llvm::Instruction>(tmp)->setMetadata("upper_data", Node);
 		// llvm::errs() << "mp[tmp->getName()] : " << mp[tmp->getName()] << '\n';
 		return tmp;
 	} else if (bin_expr->getOp() == "$") { // 注釈
-		assert(llvm::isa<VariableAST>(lhs));
+		assert(llvm::isa<VariableAST>(lhs) or llvm::isa<ArrayAST>(lhs) );
 		assert(llvm::isa<NumberAST>(rhs));
-		mp[llvm::dyn_cast<VariableAST>(lhs)->getName()] = llvm::dyn_cast<NumberAST>(rhs)->getNumberValue();
-		llvm::MDNode* Node = llvm::MDNode::get(TheContext, llvm::MDString::get(TheContext, std::to_string(mp[llvm::dyn_cast<VariableAST>(lhs)->getName()])));
-		llvm::cast<llvm::Instruction>(decl_mp[llvm::dyn_cast<VariableAST>(lhs)->getName()])->setMetadata("upper_data", Node);
+		if (auto name = llvm::dyn_cast<VariableAST>(lhs)->getName(); decl_mp.count(name)) {
+			mp[llvm::dyn_cast<VariableAST>(lhs)->getName()] = llvm::dyn_cast<NumberAST>(rhs)->getNumberValue();
+			llvm::MDNode* Node = llvm::MDNode::get(TheContext, llvm::MDString::get(TheContext, std::to_string(mp[llvm::dyn_cast<VariableAST>(lhs)->getName()])));
+			llvm::cast<llvm::Instruction>(decl_mp[llvm::dyn_cast<VariableAST>(lhs)->getName()])->setMetadata("upper_data", Node);
+		} else if (decl_a_mp.count(name)) {
+			a_mp[llvm::dyn_cast<ArrayAST>(lhs)->getName()] = llvm::dyn_cast<NumberAST>(rhs)->getNumberValue();
+			llvm::MDNode* Node = llvm::MDNode::get(TheContext, llvm::MDString::get(TheContext, std::to_string(a_mp[llvm::dyn_cast<ArrayAST>(lhs)->getName()])));
+			llvm::cast<llvm::Instruction>(decl_a_mp[llvm::dyn_cast<ArrayAST>(lhs)->getName()])->setMetadata("upper_data", Node);
+		}
 		// lhs->UpdateUpper(rhs->getUpper());
 		// llvm::errs() << "$, mp[lhs_v->getName()] : " << mp[llvm::dyn_cast<VariableAST>(lhs)->getName()] << '\n';
 		return NULL;
+	} else if (bin_expr->getOp() == "inc") {
+		assert(llvm::isa<ArrayAST>(lhs));
+		assert(llvm::isa<NumberAST>(rhs));
+		auto name = llvm::dyn_cast<ArrayAST>(lhs)->getName();
+		llvm::Value* idxList[2] = {
+			Builder->getInt32(0),
+			Builder->getInt32(llvm::dyn_cast<NumberAST>(rhs)->getNumberValue()),
+		};
+		llvm::Value* elemPtr = Builder->CreateGEP(llvm::ArrayType::get(llvm::Type::getInt64Ty(TheContext), a_siz[name]), decl_a_mp[name], idxList, "gep");
+		llvm::MDNode* Node = llvm::MDNode::get(TheContext, llvm::MDString::get(TheContext, std::to_string(a_mp[llvm::dyn_cast<ArrayAST>(lhs)->getName()])));
+		llvm::cast<llvm::Instruction>(elemPtr)->setMetadata("upper_data", Node);
+		auto t0 = Builder->CreateLoad(elemPtr, "t0");
+		auto add_tmp = Builder->CreateAdd(t0, llvm::ConstantInt::get(llvm::Type::getInt64Ty(TheContext), 1), "inc_add_tmp");
+		auto tmp = Builder->CreateStore(add_tmp, elemPtr, "inc_tmp");
+		llvm::MDNode* Node2 = llvm::MDNode::get(TheContext, llvm::MDString::get(TheContext, std::to_string(1 + a_mp[llvm::dyn_cast<ArrayAST>(lhs)->getName()])));
+		llvm::cast<llvm::Instruction>(t0)->setMetadata("upper_data", Node);
+		llvm::cast<llvm::Instruction>(add_tmp)->setMetadata("upper_data", Node2);
+		llvm::cast<llvm::Instruction>(tmp)->setMetadata("upper_data", Node2);
+		return tmp;
 	} else {
 		return NULL;
 	}

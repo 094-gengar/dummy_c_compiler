@@ -1,3 +1,4 @@
+#include <iostream>
 #include "parser.hpp"
 
 /*
@@ -16,6 +17,7 @@ bool Parser::doParse() {
 		fprintf(stderr, "error at lexer\n");
 		return false;
 	} else {
+		// Tokens->printTokens();
 		return visitTranslationUnit();
 	}
 }
@@ -231,6 +233,7 @@ FunctionStmtAST* Parser::visitFunctionStatement(PrototypeAST* proto) {
 	}
 
 	VariableDeclAST* var_decl;
+	ArrayDeclAST* arr_decl;
 	BaseAST* stmt, * last_stmt;
 
 	// {statement_list}
@@ -260,12 +263,57 @@ FunctionStmtAST* Parser::visitFunctionStatement(PrototypeAST* proto) {
 				stmt = visitStatement();
 			}
 		}
+	} else if (arr_decl = visitArrayDeclaration()) { // array_declaration list
+		// std::cerr << "hoge\n";
+		while (arr_decl) {
+			arr_decl->setDeclType(ArrayDeclAST::local);
+			if (std::find(begin(ArrayTable), end(ArrayTable), arr_decl->getName()) != end(ArrayTable)) {
+				SAFE_DELETE(arr_decl);
+				SAFE_DELETE(func_stmt);
+				return NULL;
+			}
+			func_stmt->addArrayDeclaration(arr_decl);
+			ArrayTable.push_back(arr_decl->getName());
+			arr_decl = visitArrayDeclaration();
+		}
+		// std::cerr << "hoge" << std::endl;
+
+		if (stmt = visitStatement()) {
+			while (stmt) {
+				last_stmt = stmt;
+				// std::cerr << stmt->getValueID() << std::endl;
+				func_stmt->addStatement(stmt);
+				stmt = visitStatement();
+			}
+		} else if (var_decl = visitVariableDeclaration()) { // variable_declaration list
+			while (var_decl) {
+				var_decl->setDeclType(VariableDeclAST::local);
+				if (std::find(begin(VariableTable), end(VariableTable), var_decl->getName()) != end(VariableTable)) {
+					SAFE_DELETE(var_decl);
+					SAFE_DELETE(func_stmt);
+					return NULL;
+				}
+				func_stmt->addVariableDeclaration(var_decl);
+				VariableTable.push_back(var_decl->getName());
+				// parse Variable Declaration
+				var_decl = visitVariableDeclaration();
+			}
+			if (stmt = visitStatement()) {
+				while (stmt) {
+					last_stmt = stmt;
+					func_stmt->addStatement(stmt);
+					stmt = visitStatement();
+				}
+			}
+		}
 	} else { // other
 		SAFE_DELETE(func_stmt);
 		Tokens->applyTokenIndex(tmp);
 		return NULL;
 	}
 
+
+	// std::cerr << "fuga" << std::endl;
 	// check if last statement is jump_statement
 	if (not last_stmt or not llvm::isa<JumpStmtAST>(last_stmt)) {
 		SAFE_DELETE(func_stmt);
@@ -274,7 +322,9 @@ FunctionStmtAST* Parser::visitFunctionStatement(PrototypeAST* proto) {
 	}
 
 	// }
+	// std::cerr << Tokens->getCurString() << std::endl;
 	if (Tokens->getCurString() == "}") {
+		// std::cerr << "piyo" << std::endl;
 		Tokens->getNextToken();
 		return func_stmt;
 	} else {
@@ -312,6 +362,62 @@ VariableDeclAST* Parser::visitVariableDeclaration() {
 		Tokens->ungetToken(2);
 		return NULL;
 	}
+}
+
+/*
+ * ArrayDeclaration用構文解析メソッド
+ * @return 解析成功：ArrayDeclAST、失敗：NULL
+ */
+
+ArrayDeclAST* Parser::visitArrayDeclaration() {
+	std::string name;
+	size_t size;
+	// ARRAY
+	if (Tokens->getCurType() == TOK_ARRAY) {
+		Tokens->getNextToken();
+		// std::cerr << "1\n"; 
+	} else {
+		return NULL;
+	}
+	// IDENTIFIER
+	if (Tokens->getCurType() == TOK_IDENTIFIER) {
+		name = Tokens->getCurString();
+		Tokens->getNextToken();
+	} else {
+		Tokens->ungetToken(1);
+		return NULL;
+	}
+	// [
+	if (Tokens->getCurString() == "[") {
+		Tokens->getNextToken();
+	} else {
+		Tokens->ungetToken(2);
+		return NULL;
+	}
+	// DIGIT
+	if (Tokens->getCurType() == TOK_DIGIT) {
+		size = Tokens->getCurNumVal();
+		Tokens->getNextToken();
+	} else {
+		Tokens->ungetToken(3);
+		return NULL;
+	}
+	if (Tokens->getCurString() == "]") {
+		Tokens->getNextToken();
+	} else {
+		Tokens->ungetToken(4);
+		return NULL;
+	}
+	// ';'
+	if (Tokens->getCurString() == ";") {
+		Tokens->getNextToken();
+		return new ArrayDeclAST(name, size);
+	} else {
+		Tokens->ungetToken(5);
+		return NULL;
+	}
+	// example:
+	// array a[5];
 }
 
 /*
@@ -404,6 +510,41 @@ BaseAST* Parser::visitAssignmentExpression() {
 				} else {
 					SAFE_DELETE(lhs);
 					Tokens->applyTokenIndex(tmp);
+				}
+			} else {
+				SAFE_DELETE(lhs);
+				Tokens->applyTokenIndex(tmp);
+			}
+		} else if (std::find(begin(ArrayTable), end(ArrayTable), Tokens->getCurString()) != end(ArrayTable)) {
+			lhs = new ArrayAST(Tokens->getCurString());
+			Tokens->getNextToken();
+			BaseAST* rhs;
+			if (Tokens->getCurType() == TOK_SYMBOL and 
+				Tokens->getCurString() == "=") {
+				Tokens->getNextToken();
+				if (rhs = visitAdditiveExpression(NULL)) {
+					return new BinaryExprAST("=", lhs, rhs);
+				} else {
+					SAFE_DELETE(lhs);
+					Tokens->applyTokenIndex(tmp);
+				}
+			} else if (Tokens->getCurType() == TOK_SYMBOL and
+				Tokens->getCurString() == "$") {
+				Tokens->getNextToken();
+				if (rhs = visitAdditiveExpression(NULL)) {
+					return new BinaryExprAST("$", lhs, rhs); // TODO
+				} else {
+					SAFE_DELETE(lhs);
+					Tokens->applyTokenIndex(tmp);
+				}
+			} else if (Tokens->getCurType() == TOK_IDENTIFIER and 
+				Tokens->getCurString() == "inc") {
+				Tokens->getNextToken();
+				if (rhs = visitAdditiveExpression(NULL)) {
+					return new BinaryExprAST("inc", lhs, rhs);
+				} else {
+					SAFE_DELETE(lhs);
+					Tokens->applyTokenIndex(tmp);	
 				}
 			} else {
 				SAFE_DELETE(lhs);

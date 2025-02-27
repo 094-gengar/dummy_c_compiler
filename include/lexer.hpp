@@ -18,6 +18,7 @@ enum TokenType {
 	TOK_DIGIT,
 	TOK_SYMBOL,
 	TOK_INT,
+	TOK_ARRAY,
 	TOK_RETURN,
 	TOK_EOF
 };
@@ -36,7 +37,7 @@ public:
 	Token(std::string string, TokenType type, int line)
 		: TokenString(string), Type(type), Line(line) {
 		if (type == TOK_DIGIT) {
-			Number = atoi(string.c_str());
+			Number = atoll(string.c_str());
 		} else {
 			Number = 0x7fffffff;
 		}

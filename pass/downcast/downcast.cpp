@@ -55,7 +55,12 @@ struct DowncastPass : public FunctionPass {
 		}
 		for (auto* Alloca : AllocasToReplace) {
 			IRBuilder<> Builder(Alloca);
-			AllocaInst* NewAlloca = Builder.CreateAlloca(Type::getInt32Ty(F.getContext()), Alloca->getArraySize(), Alloca->getName() + ".i32");
+			AllocaInst* NewAlloca;
+			if (Alloca->getAllocatedType() == Type::getInt64Ty(F.getContext()) or Alloca->getAllocatedType() == Type::getInt32Ty(F.getContext())) {
+				NewAlloca = Builder.CreateAlloca(Type::getInt32Ty(F.getContext()), Alloca->getArraySize(), Alloca->getName() + ".i32");
+			} else {
+				NewAlloca = Builder.CreateAlloca(ArrayType::get(Type::getInt32Ty(F.getContext()), Alloca->getAllocatedType()->getArrayNumElements()), Alloca->getArraySize(), Alloca->getName() + ".i32");
+			}
 			NewAlloca->takeName(Alloca);
 			Alloca->replaceAllUsesWith(NewAlloca);
 			Alloca->eraseFromParent();
@@ -100,7 +105,19 @@ struct DowncastPass : public FunctionPass {
 							InstructionsToReplace.emplace_back(Load);
 						}
 					}
-				}
+				} else if (auto* GEP = dyn_cast<GetElementPtrInst>(PointerOperand->stripPointerCasts())) {
+					auto r_name = GEP->getName().str();
+					// errs() << "fuga: " <<  GEP->getName().str() << '\n';
+					if (upper_mp.count(r_name) or upper_mp.count(l_name)) {
+						auto l_upper_val = upper_mp.count(l_name) ? upper_mp.at(l_name) : (int64_t)INT32_MAX;
+						auto r_upper_val = upper_mp.count(r_name) ? upper_mp.at(r_name) : (int64_t)INT32_MAX;
+						// errs() << l_upper_val << " " << r_upper_val << "\n";
+						if (r_upper_val <= INT32_MAX or l_upper_val <= INT32_MAX) {
+							// どちらもi32に直す
+							InstructionsToReplace.emplace_back(Load);
+						}
+					}
+				} 
 			} else if (auto* BinOp = dyn_cast<BinaryOperator>(&I)) {
 				bool flag = false;
 				auto tmp_name = BinOp->getName().str();
@@ -123,6 +140,8 @@ struct DowncastPass : public FunctionPass {
 				if (Call->getCalledFunction()->getName() == "printnum") {
 					InstructionsToReplace.emplace_back(Call);
 				}
+			} else if (auto* GEP = dyn_cast<GetElementPtrInst>(&I)) {
+				if (low_q(GEP->getPointerOperand()->getName().str())) InstructionsToReplace.emplace_back(GEP);
 			}
 		}
 
@@ -156,18 +175,34 @@ struct DowncastPass : public FunctionPass {
 				auto load_name = Load->getName().str();
 				Value* PointerOperand = Load->getPointerOperand();
 				auto p_name = PointerOperand->getName().str();
+				// errs() << "fuga\n";
 				if (low_q(load_name) or low_q(p_name)) {
+					// errs() << "fuga\n";
+					// errs() << p_name << "\n";
 					Value* NewLoad = Builder.CreateLoad(Type::getInt32Ty(F.getContext()), PointerOperand, p_name + ".i32");
 					NewLoad->takeName(Load);
 					Load->replaceAllUsesWith(NewLoad);
 					Load->eraseFromParent();
+					// if (auto* Alloca = dyn_cast<AllocaInst>(PointerOperand)) {
+					// 	IRBuilder<> Builder(Alloca);
+					// 	AllocaInst* NewAlloca = Builder.CreateAlloca(Type::getInt32Ty(F.getContext()), Alloca->getArraySize(), Alloca->getName() + ".i32");
+					// 	NewAlloca->takeName(Alloca);
+					// 	Alloca->replaceAllUsesWith(NewAlloca);
+					// 	Alloca->eraseFromParent();
+					// } else if (auto* GEP = dyn_cast<Instruction>(PointerOperand)) {
+					// 	// if (auto *Ty = dyn_cast<ArrayType>(GEP->getSourceElementType())) {
+					// 	// 	assert(Ty->getArrayElementType()->isIntegerTy(64));
+					// 	// 	llvm::Value* idxList[2] = {
+					// 	// 		Builder.getInt32(0),
+					// 	// 		GEP->getOperand(2)
+					// 	// 	};
+					// 	// 	auto NewGEP = Builder.CreateGEP(llvm::ArrayType::get(llvm::Type::getInt32Ty(F.getContext()), Ty->getArrayNumElements()), GEP->getPointerOperand(), idxList);
+					// 	// 	NewGEP->takeName(GEP);
+					// 	// 	GEP->replaceAllUsesWith(NewGEP);
+					// 	// 	GEP->eraseFromParent();
+					// 	// }
+					// }
 
-					auto* Alloca = dyn_cast<AllocaInst>(PointerOperand->stripPointerCasts());
-					IRBuilder<> Builder(Alloca);
-					AllocaInst* NewAlloca = Builder.CreateAlloca(Type::getInt32Ty(F.getContext()), Alloca->getArraySize(), Alloca->getName() + ".i32");
-					NewAlloca->takeName(Alloca);
-					Alloca->replaceAllUsesWith(NewAlloca);
-					Alloca->eraseFromParent();
 				}
 			} else if (auto* BinOp = dyn_cast<BinaryOperator>(Ins)) {
 				auto tmp_name = BinOp->getName();
@@ -228,12 +263,53 @@ struct DowncastPass : public FunctionPass {
 					Call->replaceAllUsesWith(NewCall);
 					Call->eraseFromParent();
 				}
+			} else if (auto* GEP = dyn_cast<GetElementPtrInst>(Ins)) {
+				// errs() << "hoge\n";
+				if (auto *Ty = dyn_cast<ArrayType>(GEP->getSourceElementType())) {
+					assert(Ty->getArrayElementType()->isIntegerTy(64));
+					llvm::Value* idxList[2] = {
+						Builder.getInt32(0),
+						GEP->getOperand(2)
+					};
+					auto NewGEP = Builder.CreateGEP(llvm::ArrayType::get(llvm::Type::getInt32Ty(F.getContext()), Ty->getArrayNumElements()), GEP->getPointerOperand(), idxList, GEP->getName() + ".i32");
+					NewGEP->takeName(GEP);
+					GEP->replaceAllUsesWith(NewGEP);
+					GEP->eraseFromParent();
+
+					// llvm::Value *idxList[2] = {
+					// 	Builder->getInt32(0),
+					// 	Builder->getInt32(llvm::dyn_cast<NumberAST>(rhs)->getNumberValue()),
+					// };
+					// llvm::Value *elemPtr = Builder->CreateGEP(llvm::ArrayType::get(llvm::Type::getInt64Ty(TheContext), a_siz[name]), decl_a_mp[name], idxList);
+					
+					// // ポインタ型がi64*なら、i32*に変更
+					// errs() << GEP->getPointerOperand()->getType()->getPointerElementType()->isArrayTy() << "\n";
+					// if (GEP->getPointerOperand()->getType()->isPointerTy() &&
+					// 	GEP->getPointerOperand()->getType()->getPointerElementType()->isArrayTy()) {
+					// 	errs() << "fuga\n";
+					// 	IRBuilder<> Builder(GEP);
+					// 	// ポインタ型のキャストを行う
+					// 	Value *NewPointer = Builder.CreateBitCast(GEP->getPointerOperand(), Type::getInt32PtrTy(F.getContext()));
+					// 	GEP->setOperand(0, NewPointer);
+					// }
+
+					// // インデックスの型を変更（i64 -> i32）
+					// for (unsigned i = 1; i < GEP->getNumOperands(); ++i) {
+					// 	Value *Index = GEP->getOperand(i);
+					// 	if (Index->getType()->isIntegerTy(64)) {
+					// 		// i64型のインデックスをi32型に変換
+					// 		IRBuilder<> Builder(GEP);
+					// 		Value *NewIndex = Builder.CreateTrunc(Index, Type::getInt32Ty(F.getContext()));
+					// 		GEP->setOperand(i, NewIndex);
+					// 	}
+					// }
+				}
 			}
 		}
 
-		for (const auto& [key, value] : upper_mp) {
-			errs() << key << "\r\t\t: " << value << "\n";
-		}
+		// for (const auto& [key, value] : upper_mp) {
+		// 	errs() << key << "\r\t\t: " << value << "\n";
+		// }
 
 		return true;
 	}
